@@ -25,7 +25,7 @@ def exec_mng_cmd(mng_cmd, mng_params):
     ec2 = boto3.client('ec2')
     ec2_info = ec2.describe_instances()
 
-    res_msg = "do something"
+    res_msg = "do something !"
 
     return res_msg
 
