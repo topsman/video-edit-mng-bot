@@ -13,8 +13,7 @@ def video_edit_mng_handler(event, context):
     mng_params = event['message']['text'].split()[1:]
     mng_chat_id = event['message']['chat']['id']
     mng_chat_username = event['message']['chat']['username']
-
-    print("%s:%s:%s:%s\n" % (mng_cmd, mng_params, mng_chat_id, mng_chat_username))
+    print("(event) %s:%s:%s:%s\n" % (mng_cmd, mng_params, mng_chat_id, mng_chat_username))
 
     if mng_cmd not in mng_cmd_type:
         return
@@ -33,6 +32,8 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_chat_username):
     res_msg = ''
     tag_name = ''
     tag_service2 = ''
+    tag_team = ''
+    tag_username = ''
 
     for item in ec2_info['Reservations']:
         for inst in item['Instances']:
@@ -46,11 +47,29 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_chat_username):
                 if tags['Key'] == 'team':
                     tag_team = tags['Value']
 
-            if tag_service2 == 'video-edit':
-                ec2_dict[tag_name] = [tag_team, inst['State']['Name']]
+                if tags['Key'] == 'username':
+                    tag_username = tags['Value']
 
-    for item in sorted(ec2_dict):
-        res_msg += "[%s : %s] %s\n" % (item, ec2_dict[item][0], ec2_dict[item][1])
+            if tag_service2 == 'video-edit':
+                ec2_dict[tag_name] = {'instance-id': inst['InstanceId'], 'state': inst['State']['Name'],
+                                      'team': tag_team, 'username': tag_username}
+
+    if mng_cmd in ['/list']:
+        for item in sorted(ec2_dict):
+            res_msg += "[%s : %s : %s] %s\n" % \
+                       (item, ec2_dict[item]['team'], ec2_dict[item]['username'], ec2_dict[item]['state'])
+    elif mng_cmd in ['/start']:
+        if mng_params[0] in ec2_dict and mng_chat_username == ec2_dict[mng_params[0]]['username']:
+            ec2.start_instances(InstanceIds=[ec2_dict[mng_params[0]]['instance-id']])
+            res_msg = "[%s : %s] 서버가 곧 시작됩니다.\n" % (mng_params[0], ec2_dict[mng_params[0]]['team'])
+        else:
+            res_msg = "[%s : %s] 권한이 없습니다.\n" % (mng_params[0], ec2_dict[mng_params[0]]['team'])
+    elif mng_cmd in ['/stop']:
+        if mng_params[0] in ec2_dict and mng_chat_username == ec2_dict[mng_params[0]]['username']:
+            ec2.stop_instances(InstanceIds=[ec2_dict[mng_params[0]]['instance-id']])
+            res_msg = "[%s : %s] 서버가 곧 중지됩니다.\n" % (mng_params[0], ec2_dict[mng_params[0]]['team'])
+        else:
+            res_msg = "[%s : %s] 권한이 없습니다.\n" % (mng_params[0], ec2_dict[mng_params[0]]['team'])
 
     return res_msg
 
