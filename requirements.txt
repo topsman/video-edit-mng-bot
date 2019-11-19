@@ -1,0 +1,2 @@
+boto3==1.9.168
+python-telegram-bot==11.1.0
