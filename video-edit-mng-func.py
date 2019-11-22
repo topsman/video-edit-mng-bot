@@ -48,19 +48,18 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
     if mng_cmd in ['/list']:
         for item in sorted(ec2_dict):
             res_msg += "[%s][%s] %s\n" % (item, ec2_dict[item]['team'], ec2_dict[item]['state'])
-    elif mng_cmd in ['/start']:
-        ec2_name = mng_params[0] if mng_params else ''
-        if ec2_name in ec2_dict and mng_user_id == ec2_dict[ec2_name]['user_id']:
-            ec2.start_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
-            res_msg = "[%s][%s] 서버가 곧 시작됩니다. (%s)\n" \
-                      % (ec2_name, ec2_dict[ec2_name]['team'], ec2_dict[ec2_name]['ip-address'])
-        else:
-            res_msg = "[%s] 권한이 없거나 등록되지 않은 서버입니다.\n" % ec2_name
-    elif mng_cmd in ['/stop']:
-        ec2_name = mng_params[0] if mng_params else ''
-        if ec2_name in ec2_dict and mng_user_id == ec2_dict[ec2_name]['user_id']:
-            ec2.stop_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
-            res_msg = "[%s][%s] 서버가 곧 중지됩니다.\n" % (ec2_name, ec2_dict[ec2_name]['team'])
+    elif mng_cmd in ['/start', '/stop'] and mng_params:
+        ec2_name = mng_params[0]
+        allowed_user_id_list = ec2_dict[ec2_name]['user_id'].replace(' ', '').split(',') if ec2_name in ec2_dict else []
+        allowed_user_id_list += str(os.environ['ADMIN_USER_ID']).replace(' ', '').split(',')
+        if (ec2_name in ec2_dict) and (mng_user_id in allowed_user_id_list):
+            if mng_cmd in ['/start']:
+                ec2.start_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
+                res_msg = "[%s][%s] 서버가 곧 시작됩니다. (%s)\n" \
+                          % (ec2_name, ec2_dict[ec2_name]['team'], ec2_dict[ec2_name]['ip-address'])
+            elif mng_cmd in ['/stop']:
+                ec2.stop_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
+                res_msg = "[%s][%s] 서버가 곧 중지됩니다.\n" % (ec2_name, ec2_dict[ec2_name]['team'])
         else:
             res_msg = "[%s] 권한이 없거나 등록되지 않은 서버입니다.\n" % ec2_name
 
@@ -69,4 +68,3 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
 
 def snd_telegram_msg(bot, chat_id, msg):
     bot.sendMessage(chat_id=chat_id, text=msg)
-
