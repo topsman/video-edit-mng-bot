@@ -39,7 +39,7 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
 
             if tag_service2 == 'video-edit':
                 public_ip = ''
-                if inst['NetworkInterfaces']:
+                if 'Association' in inst['NetworkInterfaces'][0]:
                     public_ip = inst['NetworkInterfaces'][0]['Association']['PublicIp']
 
                 ec2_dict[tag_name] = {
