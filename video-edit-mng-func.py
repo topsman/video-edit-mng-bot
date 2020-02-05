@@ -38,10 +38,13 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
                 tag_user_id = tags['Value'] if tags['Key'] == 'user_id' else tag_user_id
 
             if tag_service2 == 'video-edit':
+                public_ip = ''
+                if inst['NetworkInterfaces']:
+                    public_ip = inst['NetworkInterfaces'][0]['Association']['PublicIp']
+
                 ec2_dict[tag_name] = {
                     'instance-id': inst['InstanceId'], 'state': inst['State']['Name'],
-                    'team': tag_team, 'user_id': tag_user_id,
-                    'ip-address': inst['NetworkInterfaces'][0]['Association']['PublicIp']
+                    'team': tag_team, 'user_id': tag_user_id, 'ip-address': public_ip
                 }
 
     res_msg = ''
