@@ -28,9 +28,9 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
     ec2_info = ec2.describe_instances()
 
     ec2_dict = {}
-    tag_name, tag_service2, tag_team, tag_user_id = '', '', '', ''
     for item in ec2_info['Reservations']:
         for inst in item['Instances']:
+            tag_name, tag_service2, tag_team, tag_user_id = '', '', '', ''
             for tags in inst['Tags']:
                 tag_name = tags['Value'] if tags['Key'] == 'Name' else tag_name
                 tag_service2 = tags['Value'] if tags['Key'] == 'Service2' else tag_service2
@@ -38,8 +38,8 @@ def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
                 tag_user_id = tags['Value'] if tags['Key'] == 'user_id' else tag_user_id
 
             if tag_service2 == 'video-edit':
-                public_ip = ''
-                if 'Association' in inst['NetworkInterfaces'][0]:
+                public_ip = 'not assigned'
+                if inst['NetworkInterfaces'] and ('Association' in inst['NetworkInterfaces'][0]):
                     public_ip = inst['NetworkInterfaces'][0]['Association']['PublicIp']
 
                 ec2_dict[tag_name] = {
