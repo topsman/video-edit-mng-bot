@@ -1,6 +1,7 @@
 import telegram
-import boto3
 import os
+import boto3
+from botocore.exceptions import ClientError
 
 mng_cmd_type = ['/list', '/start', '/stop']
 
@@ -20,54 +21,57 @@ def video_edit_mng_handler(event, context):
     res_msg = exec_mng_cmd(mng_cmd, mng_params, mng_user_id)
     if res_msg != '':
         snd_telegram_msg(bot=mng_bot, chat_id=mng_chat_id, msg=res_msg)
-        print(res_msg)
 
 
 def exec_mng_cmd(mng_cmd, mng_params, mng_user_id):
-    ec2 = boto3.client('ec2')
-    ec2_info = ec2.describe_instances()
+    try:
+        ec2 = boto3.client('ec2')
+        ec2_info = ec2.describe_instances()
 
-    ec2_dict = {}
-    for item in ec2_info['Reservations']:
-        for inst in item['Instances']:
-            tag_name, tag_service2, tag_team, tag_user_id = '', '', '', ''
-            for tags in inst['Tags']:
-                tag_name = tags['Value'] if tags['Key'] == 'Name' else tag_name
-                tag_service2 = tags['Value'] if tags['Key'] == 'Service2' else tag_service2
-                tag_team = tags['Value'] if tags['Key'] == 'team' else tag_team
-                tag_user_id = tags['Value'] if tags['Key'] == 'user_id' else tag_user_id
+        ec2_dict = {}
+        for item in ec2_info['Reservations']:
+            for inst in item['Instances']:
+                tag_name, tag_service2, tag_team, tag_user_id = '', '', '', ''
+                for tags in inst['Tags']:
+                    tag_name = tags['Value'] if tags['Key'] == 'Name' else tag_name
+                    tag_service2 = tags['Value'] if tags['Key'] == 'Service2' else tag_service2
+                    tag_team = tags['Value'] if tags['Key'] == 'team' else tag_team
+                    tag_user_id = tags['Value'] if tags['Key'] == 'user_id' else tag_user_id
 
-            if tag_service2 == 'video-edit':
-                public_ip = 'not assigned'
-                if inst['NetworkInterfaces'] and ('Association' in inst['NetworkInterfaces'][0]):
-                    public_ip = inst['NetworkInterfaces'][0]['Association']['PublicIp']
+                if tag_service2 == 'video-edit':
+                    public_ip = 'not assigned'
+                    if inst['NetworkInterfaces'] and ('Association' in inst['NetworkInterfaces'][0]):
+                        public_ip = inst['NetworkInterfaces'][0]['Association']['PublicIp']
 
-                ec2_dict[tag_name] = {
-                    'instance-id': inst['InstanceId'], 'state': inst['State']['Name'],
-                    'team': tag_team, 'user_id': tag_user_id, 'ip-address': public_ip
-                }
+                    ec2_dict[tag_name] = {
+                        'instance-id': inst['InstanceId'], 'state': inst['State']['Name'],
+                        'team': tag_team, 'user_id': tag_user_id, 'ip-address': public_ip
+                    }
 
-    res_msg = ''
-    if mng_cmd in ['/list']:
-        for item in sorted(ec2_dict):
-            res_msg += "[%s][%s] %s\n" % (item, ec2_dict[item]['team'], ec2_dict[item]['state'])
-    elif mng_cmd in ['/start', '/stop'] and mng_params:
-        ec2_name = mng_params[0]
-        allowed_user_id_list = ec2_dict[ec2_name]['user_id'].replace(' ', '').split(',') if ec2_name in ec2_dict else []
-        allowed_user_id_list += str(os.environ['ADMIN_USER_ID']).replace(' ', '').split(',')
-        if (ec2_name in ec2_dict) and (mng_user_id in allowed_user_id_list):
-            if mng_cmd in ['/start']:
-                ec2.start_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
-                res_msg = "[%s][%s] 서버가 곧 시작됩니다. (%s)\n" \
-                          % (ec2_name, ec2_dict[ec2_name]['team'], ec2_dict[ec2_name]['ip-address'])
-            elif mng_cmd in ['/stop']:
-                ec2.stop_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
-                res_msg = "[%s][%s] 서버가 곧 중지됩니다.\n" % (ec2_name, ec2_dict[ec2_name]['team'])
-        else:
-            res_msg = "[%s] 권한이 없거나 등록되지 않은 서버입니다.\n" % ec2_name
+        res_msg = ''
+        if mng_cmd in ['/list']:
+            for item in sorted(ec2_dict):
+                res_msg += "[%s][%s] %s\n" % (item, ec2_dict[item]['team'], ec2_dict[item]['state'])
+        elif mng_cmd in ['/start', '/stop'] and mng_params:
+            ec2_name = mng_params[0]
+            allowed_user_id_list = ec2_dict[ec2_name]['user_id'].replace(' ', '').split(',') if ec2_name in ec2_dict else []
+            allowed_user_id_list += str(os.environ['ADMIN_USER_ID']).replace(' ', '').split(',')
+            if (ec2_name in ec2_dict) and (mng_user_id in allowed_user_id_list):
+                if mng_cmd in ['/start']:
+                    ec2.start_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
+                    res_msg = "[%s][%s] 서버가 곧 시작됩니다. (%s)\n" \
+                              % (ec2_name, ec2_dict[ec2_name]['team'], ec2_dict[ec2_name]['ip-address'])
+                elif mng_cmd in ['/stop']:
+                    ec2.stop_instances(InstanceIds=[ec2_dict[ec2_name]['instance-id']])
+                    res_msg = "[%s][%s] 서버가 곧 중지됩니다.\n" % (ec2_name, ec2_dict[ec2_name]['team'])
+            else:
+                res_msg = "[%s] 권한이 없거나 등록되지 않은 서버입니다.\n" % ec2_name
+    except ClientError as e:
+        res_msg = "[AWS] %s" % e
 
     return res_msg
 
 
 def snd_telegram_msg(bot, chat_id, msg):
     bot.sendMessage(chat_id=chat_id, text=msg)
+    print(msg)
